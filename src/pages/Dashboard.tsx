@@ -99,7 +99,7 @@ export const Dashboard: React.FC = () => {
       case 'branch_admin':
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div data-tour="dashboard-overview" className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm flex items-center justify-between transition-all duration-300 hover:scale-[1.01] hover:shadow-md">
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Today's Patients</p>

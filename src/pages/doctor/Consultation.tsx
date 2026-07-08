@@ -36,6 +36,18 @@ interface MedicalHistory {
   family_history?: string;
 }
 
+interface VisitAmendment {
+  id: string;
+  reason: string;
+  amended_symptoms?: string;
+  amended_clinical_notes?: string;
+  amended_diagnosis?: string[];
+  amended_treatment_plan?: string;
+  amended_by: string;
+  amended_by_name: string;
+  amended_at: string;
+}
+
 interface Visit {
   id: string;
   patient_id: string;
@@ -43,8 +55,10 @@ interface Visit {
   symptoms: string;
   clinical_notes: string;
   diagnosis: string[];
+  treatment_plan?: string;
   status: string;
   is_finalized?: boolean;
+  amendments?: VisitAmendment[];
 }
 
 interface Icd15Code {
@@ -105,6 +119,7 @@ export const Consultation: React.FC = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [currentVitals, setCurrentVitals] = useState<Vitals | null>(null);
   const [medicalHistory, setMedicalHistory] = useState<MedicalHistory | null>(null);
+  const [pastVisits, setPastVisits] = useState<any[]>([]);
 
   // Auto-complete Diagnosis states
   const [diagQuery, setDiagQuery] = useState('');
@@ -169,6 +184,80 @@ export const Consultation: React.FC = () => {
   const [similarCases, setSimilarCases] = useState<any[]>([]);
   const [isSearchingSimilar, setIsSearchingSimilar] = useState(false);
   const [similarSearchQuery, setSimilarSearchQuery] = useState('');
+
+  // EMR Amendment states
+  const [showAmendmentForm, setShowAmendmentForm] = useState(false);
+  const [amendReason, setAmendReason] = useState('');
+  const [amendSymptoms, setAmendSymptoms] = useState('');
+  const [amendClinicalNotes, setAmendClinicalNotes] = useState('');
+  const [amendTreatmentPlan, setAmendTreatmentPlan] = useState('');
+  const [amendDiagnosis, setAmendDiagnosis] = useState<string[]>([]);
+  const [amendDiagQuery, setAmendDiagQuery] = useState('');
+  const [amendDiagSuggestions, setAmendDiagSuggestions] = useState<Icd15Code[]>([]);
+  const [isSearchingAmendDiag, setIsSearchingAmendDiag] = useState(false);
+  const [isSubmittingAmendment, setIsSubmittingAmendment] = useState(false);
+
+  // ✨ AI Clinical Copilot & Patient Translator states
+  const [aiCopilotSummary, setAiCopilotSummary] = useState('');
+  const [aiCopilotInstructions, setAiCopilotInstructions] = useState('');
+  const [isSummarizingAI, setIsSummarizingAI] = useState(false);
+  const [isSimplifyingAI, setIsSimplifyingAI] = useState(false);
+  const [aiTargetLanguage, setAiTargetLanguage] = useState('Hindi');
+
+  const handleGenerateAISummary = async () => {
+    if (!id) return;
+    setIsSummarizingAI(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const payload = {
+        patient_id: visit?.patient_id || '',
+        symptoms: symptoms || 'None',
+        clinical_notes: clinicalNotes || 'None',
+        diagnosis: selectedDiagnoses.length > 0 ? selectedDiagnoses : ['None']
+      };
+      const res = await apiClient.post('/api/ai/visit-summarize', payload);
+      setAiCopilotSummary(res.data.generated_text);
+      setSuccessMsg('AI clinical summary generated successfully.');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to generate AI summary.');
+    } finally {
+      setIsSummarizingAI(false);
+    }
+  };
+
+  const handleSimplifyInstructions = async () => {
+    if (!id) return;
+    if (!treatmentPlan) {
+      setError('Please write a treatment plan or instructions to simplify.');
+      return;
+    }
+    setIsSimplifyingAI(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const payload = {
+        patient_id: visit?.patient_id || '',
+        instructions: treatmentPlan,
+        target_language: aiTargetLanguage
+      };
+      const res = await apiClient.post('/api/ai/simplify-instructions', payload);
+      setAiCopilotInstructions(res.data.generated_text);
+      setSuccessMsg('Simplified patient instructions generated successfully.');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to simplify instructions.');
+    } finally {
+      setIsSimplifyingAI(false);
+    }
+  };
+
+  const handleAppendInstructions = () => {
+    if (aiCopilotInstructions) {
+      const current = treatmentPlan ? `${treatmentPlan}\n\n` : '';
+      setTreatmentPlan(`${current}[Simplified in ${aiTargetLanguage}]:\n${aiCopilotInstructions}`);
+      setSuccessMsg('Simplified instructions appended to the treatment plan.');
+    }
+  };
 
   const fetchDmsClinicalData = async (patientId: string) => {
     try {
@@ -294,6 +383,14 @@ export const Consultation: React.FC = () => {
       const historyRes = await apiClient.get(`/api/patients/${visitData.patient_id}/medical-history`);
       setMedicalHistory(historyRes.data);
 
+      // 4b. Fetch patient past consultation history
+      try {
+        const pastVisitsRes = await apiClient.get(`/api/consultations/patient/${visitData.patient_id}/history`);
+        setPastVisits(pastVisitsRes.data.data || []);
+      } catch (pastErr) {
+        console.error("Failed to load past consultations:", pastErr);
+      }
+
       // 5. Fetch existing lab orders for this visit
       const labsRes = await apiClient.get('/api/labs/orders', { params: { visit_id: id } });
       setExistingLabOrders(labsRes.data);
@@ -348,6 +445,72 @@ export const Consultation: React.FC = () => {
 
   const handleRemoveDiagnosis = (entry: string) => {
     setSelectedDiagnoses(selectedDiagnoses.filter(d => d !== entry));
+  };
+
+  const handleAmendDiagnosisSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setAmendDiagQuery(val);
+    if (val.length < 2) {
+      setAmendDiagSuggestions([]);
+      return;
+    }
+
+    setIsSearchingAmendDiag(true);
+    try {
+      const res = await apiClient.get('/api/consultation/icd10', { params: { q: val } });
+      setAmendDiagSuggestions(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSearchingAmendDiag(false);
+    }
+  };
+
+  const handleAddAmendDiagnosis = (code: Icd15Code) => {
+    const entry = `${code.code} - ${code.name}`;
+    if (!amendDiagnosis.includes(entry)) {
+      setAmendDiagnosis([...amendDiagnosis, entry]);
+    }
+    setAmendDiagQuery('');
+    setAmendDiagSuggestions([]);
+  };
+
+  const handleRemoveAmendDiagnosis = (entry: string) => {
+    setAmendDiagnosis(amendDiagnosis.filter(d => d !== entry));
+  };
+
+  const handleSubmitAmendment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    if (amendReason.trim().length < 5) {
+      alert("Please provide a reason of at least 5 characters for this amendment.");
+      return;
+    }
+    setIsSubmittingAmendment(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const payload = {
+        reason: amendReason,
+        amended_symptoms: amendSymptoms || undefined,
+        amended_clinical_notes: amendClinicalNotes || undefined,
+        amended_diagnosis: amendDiagnosis.length > 0 ? amendDiagnosis : undefined,
+        amended_treatment_plan: amendTreatmentPlan || undefined
+      };
+      const res = await apiClient.post(`/api/consultation/visit/${id}/amend`, payload);
+      setVisit(res.data);
+      setAmendReason('');
+      setAmendSymptoms('');
+      setAmendClinicalNotes('');
+      setAmendTreatmentPlan('');
+      setAmendDiagnosis([]);
+      setShowAmendmentForm(false);
+      setSuccessMsg('Amendment successfully added to the consultation record.');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to submit amendment.');
+    } finally {
+      setIsSubmittingAmendment(false);
+    }
   };
 
   const handleSaveVisit = async (isComplete = false) => {
@@ -643,7 +806,7 @@ export const Consultation: React.FC = () => {
           </div>
 
           {/* Patient Physiological Vitals Triage Card */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+          <div data-tour="consultation-vitals" className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center">
                 <Activity className="h-4 w-4 text-teal-600 mr-1.5" /> Recent Vitals Triage
@@ -762,6 +925,92 @@ export const Consultation: React.FC = () => {
                 No medical history compiled yet.
               </div>
             )}
+          </div>
+
+          {/* Patient Past Visits & Chronic/Repetitive Disease Tracker */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden font-sans">
+            <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                <Activity className="h-4 w-4 text-teal-600 mr-1.5" /> Past Visits & Chronic Diseases
+              </h3>
+            </div>
+            
+            <div className="p-5 text-xs space-y-4">
+              {/* Chronic / Repeating Condition Highlights */}
+              {(() => {
+                const recurringMap: Record<string, number> = {};
+                pastVisits.forEach(v => {
+                  if (v.diagnoses) {
+                    v.diagnoses.forEach((diag: string) => {
+                      recurringMap[diag] = (recurringMap[diag] || 0) + 1;
+                    });
+                  }
+                });
+                const chronicMatches = Object.entries(recurringMap).filter(([_, count]) => count > 1);
+                
+                if (chronicMatches.length === 0) return null;
+                
+                return (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block font-sans">
+                      ⚠️ Recurring/Chronic Diagnosis Detected
+                    </span>
+                    <div className="bg-rose-50 border border-rose-100 rounded-lg p-3 space-y-1.5">
+                      {chronicMatches.map(([disease, count]) => (
+                        <p key={disease} className="text-rose-800 font-bold text-[11px] flex justify-between items-center">
+                          <span>{disease}</span>
+                          <span className="bg-rose-200 text-rose-800 px-1.5 py-0.5 rounded font-mono font-bold text-[9px] uppercase">
+                            Diagnosed {count}x
+                          </span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Past Visits logs */}
+              <div className="space-y-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                  Past Visits History
+                </span>
+                
+                {pastVisits.length === 0 ? (
+                  <p className="text-slate-400 italic text-[11px] font-semibold">No past clinical visits recorded.</p>
+                ) : (
+                  <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto custom-scrollbar space-y-2.5">
+                    {pastVisits.map((v) => (
+                      <div key={v.id} className="pt-2 text-[11px] space-y-1">
+                        <div className="flex justify-between items-center text-slate-500 font-bold font-mono">
+                          <span>{new Date(v.visit_date).toLocaleDateString()}</span>
+                          <span className="text-slate-400 capitalize">{v.status}</span>
+                        </div>
+                        {v.symptoms && (
+                          <p className="text-slate-700 font-semibold">
+                            <strong className="text-slate-400 font-bold mr-1">Complaints:</strong> {v.symptoms}
+                          </p>
+                        )}
+                        {v.diagnoses && v.diagnoses.length > 0 && (
+                          <div className="flex flex-wrap gap-1 items-center">
+                            <strong className="text-slate-400 font-bold mr-1">Diagnoses:</strong>
+                            {v.diagnoses.map((d: string, idx: number) => (
+                              <span key={idx} className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-bold font-sans">
+                                {d}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {v.treatment_plan && (
+                          <p className="text-slate-600 italic">
+                            <strong className="text-slate-400 font-bold not-italic mr-1">Plan:</strong> {v.treatment_plan}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* DMS AI Clinical Summary & Document Timeline */}
@@ -934,6 +1183,127 @@ export const Consultation: React.FC = () => {
             </div>
           </div>
 
+          {/* ✨ AI Clinical Copilot & Patient Translator Card */}
+          <div data-tour="consultation-ai-copilot" className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden font-sans bg-gradient-to-br from-teal-50/10 to-white">
+            <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                <Sparkles className="h-4 w-4 text-teal-600 mr-1.5 animate-pulse" /> AI Clinical Copilot
+              </h3>
+              <span className="px-2 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-md font-bold text-[9px] uppercase tracking-wider">
+                Gemini AI
+              </span>
+            </div>
+            
+            <div className="p-5 text-xs space-y-4">
+              {/* Visit Layperson Summary Section */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">Patient Lay Summary</span>
+                  <button
+                    onClick={handleGenerateAISummary}
+                    disabled={isSummarizingAI || visit?.is_finalized}
+                    className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-[10px] font-bold shadow-sm flex items-center cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    {isSummarizingAI ? (
+                      <>
+                        <Loader2 className="animate-spin h-3 w-3 mr-1" /> Summarizing...
+                      </>
+                    ) : (
+                      'Generate Summary'
+                    )}
+                  </button>
+                </div>
+                
+                {aiCopilotSummary ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <p className="text-slate-700 font-medium whitespace-pre-wrap">{aiCopilotSummary}</p>
+                    <div className="flex justify-end pt-1">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(aiCopilotSummary);
+                          setSuccessMsg('Summary copied to clipboard.');
+                        }}
+                        className="text-[9px] font-bold text-teal-700 hover:underline cursor-pointer"
+                      >
+                        Copy to Clipboard
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-400 italic font-medium">Click generate to translate complex complaints and clinical notes into a patient-friendly summary.</p>
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 my-3" />
+
+              {/* Patient Instructions Simplification & Translation */}
+              <div className="space-y-2">
+                <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px] block">Instructions Translator</span>
+                <p className="text-[10px] text-slate-500 leading-normal">
+                  Simplify drug frequency and follow-up care guidelines to be jargon-free and translated.
+                </p>
+
+                <div className="flex space-x-2">
+                  <select
+                    value={aiTargetLanguage}
+                    onChange={(e) => setAiTargetLanguage(e.target.value)}
+                    disabled={visit?.is_finalized}
+                    className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                  >
+                    <option value="Hindi">Hindi (हिन्दी)</option>
+                    <option value="Telugu">Telugu (తెలుగు)</option>
+                    <option value="Tamil">Tamil (தமிழ்)</option>
+                    <option value="Marathi">Marathi (मराठी)</option>
+                    <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                    <option value="Bengali">Bengali (বাংলা)</option>
+                    <option value="Spanish">Spanish (Español)</option>
+                  </select>
+
+                  <button
+                    onClick={handleSimplifyInstructions}
+                    disabled={isSimplifyingAI || visit?.is_finalized}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold flex items-center cursor-pointer transition-all disabled:opacity-50"
+                  >
+                    {isSimplifyingAI ? (
+                      <>
+                        <Loader2 className="animate-spin h-3 w-3 mr-1" /> Simplifying...
+                      </>
+                    ) : (
+                      'Simplify & Translate'
+                    )}
+                  </button>
+                </div>
+
+                {aiCopilotInstructions ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 mt-2">
+                    <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider">Translated Output ({aiTargetLanguage}):</span>
+                    <p className="text-slate-700 font-medium whitespace-pre-wrap">{aiCopilotInstructions}</p>
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-200">
+                      <button
+                        onClick={handleAppendInstructions}
+                        disabled={visit?.is_finalized}
+                        className="text-[9px] font-bold text-teal-700 hover:underline cursor-pointer disabled:opacity-50"
+                      >
+                        Append to Case Treatment Plan
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(aiCopilotInstructions);
+                          setSuccessMsg('Instructions copied to clipboard.');
+                        }}
+                        className="text-[9px] font-bold text-slate-500 hover:underline cursor-pointer"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-400 italic font-medium">Add instructions to the treatment plan and click translate to obtain localized, clear copy for the patient's care sheet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
         </div>
 
         {/* Right Columns: EMR Clinical notes, Diagnoses, treatment plan entry workspace */}
@@ -941,7 +1311,7 @@ export const Consultation: React.FC = () => {
           <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-8 space-y-6">
             
             {/* Symptoms / Presenting Complaints */}
-            <div>
+            <div data-tour="consultation-notes">
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Symptoms / Chief Complaints *</label>
               <textarea
                 rows={2}
@@ -967,7 +1337,7 @@ export const Consultation: React.FC = () => {
             </div>
 
             {/* Autocomplete Diagnosis ICD-10 Search */}
-            <div className="relative">
+            <div data-tour="consultation-icd10" className="relative">
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">ICD-10 Diagnostic Classification</label>
               <div className="relative mt-1.5">
                 <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
@@ -1319,7 +1689,7 @@ export const Consultation: React.FC = () => {
               </div>
 
               {/* E-Prescription Builder Section (Phase 9 & 10) */}
-              <div className="border-t border-slate-100 pt-6 space-y-6 font-sans">
+              <div data-tour="consultation-prescription" className="border-t border-slate-100 pt-6 space-y-6 font-sans">
                 <div>
                   <h4 className="text-sm font-bold text-slate-800 flex items-center">
                     <Pill className="h-4.5 w-4.5 text-teal-600 mr-2" /> E-Prescription Builder
@@ -1540,6 +1910,241 @@ export const Consultation: React.FC = () => {
           </div>
         </div>
 
+        {visit.is_finalized && (
+          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-8 space-y-6 mt-6">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-md font-bold text-slate-800 flex items-center">
+                  <FileText className="h-5 w-5 text-teal-600 mr-2" /> EMR Amendments & Audit Timeline
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Clinical logs appended to the signed record.</p>
+              </div>
+              {!showAmendmentForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowAmendmentForm(true)}
+                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow transition-all cursor-pointer flex items-center"
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add Amendment
+                </button>
+              )}
+            </div>
+
+            {/* Amendment form */}
+            {showAmendmentForm && (
+              <form onSubmit={handleSubmitAmendment} className="space-y-4 bg-slate-50 border border-slate-200 rounded-xl p-6">
+                <div className="flex justify-between items-center border-b border-slate-200 pb-2 mb-2">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">New Amendment Details</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAmendmentForm(false);
+                      setAmendReason('');
+                      setAmendSymptoms('');
+                      setAmendClinicalNotes('');
+                      setAmendTreatmentPlan('');
+                      setAmendDiagnosis([]);
+                    }}
+                    className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Reason for Amendment *</label>
+                  <textarea
+                    rows={2}
+                    required
+                    value={amendReason}
+                    onChange={(e) => setAmendReason(e.target.value)}
+                    className="mt-1.5 block w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                    placeholder="Document clinical rationale for amending this locked record (e.g. Corrected patient medication allergy note)..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Amended Symptoms (Optional)</label>
+                    <textarea
+                      rows={2}
+                      value={amendSymptoms}
+                      onChange={(e) => setAmendSymptoms(e.target.value)}
+                      className="mt-1.5 block w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                      placeholder="Enter updated symptoms if applicable..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Amended Clinical Notes (Optional)</label>
+                    <textarea
+                      rows={2}
+                      value={amendClinicalNotes}
+                      onChange={(e) => setAmendClinicalNotes(e.target.value)}
+                      className="mt-1.5 block w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                      placeholder="Enter corrected physical/examination findings..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Amended Treatment Plan (Optional)</label>
+                    <textarea
+                      rows={2}
+                      value={amendTreatmentPlan}
+                      onChange={(e) => setAmendTreatmentPlan(e.target.value)}
+                      className="mt-1.5 block w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                      placeholder="Enter updated follow-up or dosage instruction plan..."
+                    />
+                  </div>
+                  <div className="relative">
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Amended ICD-10 Classification (Optional)</label>
+                    <div className="relative mt-1.5">
+                      <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search disease/diagnosis..."
+                        value={amendDiagQuery}
+                        onChange={handleAmendDiagnosisSearch}
+                        className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800"
+                      />
+                    </div>
+                    {isSearchingAmendDiag && (
+                      <div className="absolute right-3 top-8">
+                        <Loader2 className="animate-spin h-4 w-4 text-teal-600" />
+                      </div>
+                    )}
+                    {amendDiagSuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10 text-xs">
+                        {amendDiagSuggestions.map(code => (
+                          <button
+                            key={code.code}
+                            type="button"
+                            onClick={() => handleAddAmendDiagnosis(code)}
+                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 flex justify-between font-semibold text-slate-800"
+                          >
+                            <span>{code.name}</span>
+                            <span className="text-teal-700 font-mono font-bold ml-4">{code.code}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {amendDiagnosis.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {amendDiagnosis.map(diag => (
+                          <span key={diag} className="inline-flex items-center px-2 py-0.5 bg-slate-200 text-slate-800 text-[10px] rounded font-bold">
+                            {diag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAmendDiagnosis(diag)}
+                              className="ml-1 text-slate-500 hover:text-slate-700 cursor-pointer"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAmendmentForm(false);
+                      setAmendReason('');
+                      setAmendSymptoms('');
+                      setAmendClinicalNotes('');
+                      setAmendTreatmentPlan('');
+                      setAmendDiagnosis([]);
+                    }}
+                    className="px-3.5 py-1.5 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAmendment}
+                    className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-md transition-all cursor-pointer inline-flex items-center"
+                  >
+                    {isSubmittingAmendment ? (
+                      <>
+                        <Loader2 className="animate-spin h-3.5 w-3.5 mr-1" /> Submitting...
+                      </>
+                    ) : 'Save Amendment'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Timeline of existing amendments */}
+            <div className="space-y-4">
+              {!visit.amendments || visit.amendments.length === 0 ? (
+                <p className="text-xs text-slate-400 font-semibold italic">No amendments recorded for this locked EMR record.</p>
+              ) : (
+                <div className="relative border-l-2 border-slate-200 ml-4 space-y-6">
+                  {visit.amendments.map((amend, index) => (
+                    <div key={amend.id || index} className="relative pl-6">
+                      <span className="absolute -left-[9px] top-1 bg-teal-600 text-white rounded-full p-1 border-4 border-white flex items-center justify-center">
+                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                      </span>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 text-slate-800">
+                        <div className="flex justify-between items-start text-xs border-b border-slate-200 pb-1.5">
+                          <div>
+                            <span className="font-bold text-slate-800">{amend.amended_by_name}</span>
+                            <span className="text-slate-400 font-medium ml-1">({amend.amended_by.substring(0, 8)})</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {new Date(amend.amended_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-700 bg-white border border-slate-100 rounded-lg p-2.5 font-medium italic">
+                          <strong className="text-slate-900 not-italic block text-[10px] font-bold uppercase tracking-wider mb-1">Reason for amendment:</strong>
+                          "{amend.reason}"
+                        </div>
+
+                        {/* Display what fields were amended */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-1.5">
+                          {amend.amended_symptoms && (
+                            <div className="bg-white border border-slate-100 rounded p-2">
+                              <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block mb-0.5">Amended Symptoms</span>
+                              <span className="text-slate-700 font-medium">{amend.amended_symptoms}</span>
+                            </div>
+                          )}
+                          {amend.amended_clinical_notes && (
+                            <div className="bg-white border border-slate-100 rounded p-2">
+                              <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block mb-0.5">Amended Clinical Notes</span>
+                              <span className="text-slate-700 font-medium">{amend.amended_clinical_notes}</span>
+                            </div>
+                          )}
+                          {amend.amended_treatment_plan && (
+                            <div className="bg-white border border-slate-100 rounded p-2">
+                              <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block mb-0.5">Amended Treatment Plan</span>
+                              <span className="text-slate-700 font-medium">{amend.amended_treatment_plan}</span>
+                            </div>
+                          )}
+                          {amend.amended_diagnosis && amend.amended_diagnosis.length > 0 && (
+                            <div className="bg-white border border-slate-100 rounded p-2">
+                              <span className="text-[10px] font-bold text-teal-700 uppercase tracking-wider block mb-0.5">Amended Diagnosis (ICD-10)</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {amend.amended_diagnosis.map(d => (
+                                  <span key={d} className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-800 text-[10px] rounded font-bold">
+                                    {d}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {showFinalizeModal && (

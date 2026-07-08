@@ -14,6 +14,8 @@ export const Login: React.FC = () => {
   // Staff credentials
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
 
   // Patient credentials
   const [phone, setPhone] = useState('');
@@ -54,16 +56,29 @@ export const Login: React.FC = () => {
 
     try {
       if (loginMode === 'staff') {
-        const response = await apiClient.post('/api/auth/login', {
-          email,
-          password,
-        });
+        if (mfaToken) {
+          const response = await apiClient.post('/api/auth/verify-2fa', {
+            mfa_token: mfaToken,
+            code: mfaCode,
+          });
+          const { access_token, refresh_token, user } = response.data;
+          setAuth(access_token, refresh_token, user);
+          navigate(from, { replace: true });
+        } else {
+          const response = await apiClient.post('/api/auth/login', {
+            email,
+            password,
+          });
 
-        const { access_token, refresh_token, user } = response.data;
-        setAuth(access_token, refresh_token, user);
-        
-        // Redirect to target path
-        navigate(from, { replace: true });
+          if (response.data.status === 'mfa_required') {
+            setMfaToken(response.data.mfa_token);
+            setError(null);
+          } else {
+            const { access_token, refresh_token, user } = response.data;
+            setAuth(access_token, refresh_token, user);
+            navigate(from, { replace: true });
+          }
+        }
       } else {
         const response = await apiClient.post('/api/auth/patient/login-phone', {
           phone,
@@ -72,7 +87,6 @@ export const Login: React.FC = () => {
 
         const { access_token, patient } = response.data;
         
-        // Map patient properties to user interface store
         const patientUser = {
           id: patient.id,
           name: `${patient.first_name} ${patient.last_name}`,
@@ -187,47 +201,83 @@ export const Login: React.FC = () => {
           {/* Login Form */}
           {loginMode === 'staff' ? (
             <form className="space-y-5" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="email" className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Mail className="h-4 w-4 text-slate-400" />
+              {mfaToken ? (
+                <>
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label htmlFor="mfaCode" className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        Two-Factor Authentication Code (SMS)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => { setMfaToken(null); setMfaCode(''); setError(null); }}
+                        className="text-xs font-bold text-teal-600 hover:text-teal-700 bg-transparent border-0 cursor-pointer"
+                      >
+                        Change Credentials
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                        <Shield className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <input
+                        id="mfaCode"
+                        name="mfaCode"
+                        type="text"
+                        required
+                        value={mfaCode}
+                        onChange={(e) => setMfaCode(e.target.value)}
+                        className="auth-input block w-full pl-10 pr-4 py-3 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none text-sm font-medium"
+                        placeholder="6-digit OTP code"
+                      />
+                    </div>
                   </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="auth-input block w-full pl-10 pr-4 py-3 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none text-sm font-medium"
-                    placeholder="doctor@hospital.com"
-                  />
-                </div>
-              </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="email" className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                        <Mail className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="auth-input block w-full pl-10 pr-4 py-3 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none text-sm font-medium"
+                        placeholder="doctor@hospital.com"
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label htmlFor="password" className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Lock className="h-4 w-4 text-slate-400" />
+                  <div>
+                    <label htmlFor="password" className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                        <Lock className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="auth-input block w-full pl-10 pr-4 py-3 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none text-sm font-medium"
+                        placeholder="••••••••"
+                      />
+                    </div>
                   </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="auth-input block w-full pl-10 pr-4 py-3 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none text-sm font-medium"
-                    placeholder="••••••••"
-                  />
-                </div>
-              </div>
+                </>
+              )}
 
               {/* Submit Button */}
               <button
@@ -291,13 +341,17 @@ export const Login: React.FC = () => {
                       id="otp"
                       name="otp"
                       type="text"
+                      maxLength={6}
                       required
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
                       className="auth-input block w-full pl-10 pr-4 py-3 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none text-sm font-medium"
-                      placeholder="Enter 1234 for testing"
+                      placeholder="6-Digit OTP Code"
                     />
                   </div>
+                  <p className="mt-1 text-[10px] text-slate-400 font-medium">
+                    A secure verification code has been sent. Enter the code to verify your mobile identity.
+                  </p>
                 </div>
               )}
 
@@ -320,12 +374,21 @@ export const Login: React.FC = () => {
           )}
 
           {/* Register link */}
-          {loginMode === 'staff' && (
+          {loginMode === 'staff' ? (
             <div className="mt-5 text-center">
               <p className="text-xs text-slate-500 font-medium">
                 Don't have an EMR workspace?{' '}
                 <Link to="/register" className="font-bold text-teal-600 hover:text-teal-500 transition-colors">
                   Create Hospital Organization
+                </Link>
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 text-center">
+              <p className="text-xs text-slate-500 font-medium">
+                Not registered yet with the hospital?{' '}
+                <Link to="/patient/register" className="font-bold text-teal-600 hover:text-teal-500 transition-colors">
+                  Register Patient Profile
                 </Link>
               </p>
             </div>

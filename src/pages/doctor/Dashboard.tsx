@@ -31,7 +31,7 @@ export const DoctorDashboard: React.FC = () => {
     fetchDoctorStats();
 
     // Socket.IO sync with authentication
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:8002';
+    const socketUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002';
     const token = localStorage.getItem('hmis_token');
     const socket = io(socketUrl, {
       transports: ['websocket'],

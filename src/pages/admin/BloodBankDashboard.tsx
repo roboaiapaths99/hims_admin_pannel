@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 import { apiClient } from '../../api/client';
 import { Alert } from '../../components/Alert';
 import { FormField } from '../../components/FormField';
@@ -58,10 +59,16 @@ export const BloodBankDashboard: React.FC = () => {
   const [requisitions, setRequisitions] = useState<BloodRequisition[]>([]);
   
   // App states
-  const [activeTab, setActiveTab] = useState<'inventory' | 'donors' | 'donations' | 'requisitions'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'donors' | 'donations' | 'requisitions' | 'alerts'>('inventory');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Emergency buzzer alert states
+  const [alertBloodGroup, setAlertBloodGroup] = useState('O-');
+  const [activeBuzzerId, setActiveBuzzerId] = useState<string | null>(null);
+  const [activeBuzzerGroup, setActiveBuzzerGroup] = useState<string>('O-');
+  const [responderList, setResponderList] = useState<any[]>([]);
 
   // Active Modals State
   const [activeModal, setActiveModal] = useState<string | null>(null); // 'add_donor', 'screen_donor', 'donate', 'lab_test', 'requisition', 'crossmatch', 'transfuse', 'discard'
@@ -130,6 +137,63 @@ export const BloodBankDashboard: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Socket setup for real-time responder alerts
+  useEffect(() => {
+    if (!activeBuzzerId) return;
+    
+    const socketBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8002';
+    const cleanSocketUrl = socketBase.replace('/api', '');
+    const socket = io(cleanSocketUrl, {
+      transports: ['websocket'],
+      upgrade: false
+    });
+
+    socket.on('connect', () => {
+      console.log('Blood Bank Admin socket connected:', socket.id);
+      socket.emit('join_admins');
+    });
+
+    socket.on('donation_accepted', (data: any) => {
+      console.log('Donor acceptance received real-time!', data);
+      if (data.broadcast_id === activeBuzzerId) {
+        setResponderList((prev) => [data, ...prev]);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [activeBuzzerId]);
+
+  const handleStartBroadcast = async () => {
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await apiClient.post('/api/blood-bank/broadcast-buzzer', {
+        blood_group: alertBloodGroup
+      });
+      setActiveBuzzerId(res.data.broadcast_id);
+      setActiveBuzzerGroup(alertBloodGroup);
+      setResponderList([]);
+      setSuccess(`Urgent ${alertBloodGroup} donation buzzer broadcasted to all patient devices!`);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.detail || 'Failed to trigger blood donation broadcast.');
+    }
+  };
+
+  const handleStopBroadcast = async () => {
+    if (!activeBuzzerId) return;
+    try {
+      await apiClient.post(`/api/blood-bank/buzzer/${activeBuzzerId}/stop`);
+      setActiveBuzzerId(null);
+      setSuccess('Emergency blood buzzer deactivated.');
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to stop active broadcast.');
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -432,7 +496,8 @@ export const BloodBankDashboard: React.FC = () => {
           { id: 'inventory', label: 'Blood Inventory', icon: Droplet },
           { id: 'donors', label: 'Donors Registry', icon: Users },
           { id: 'donations', label: 'Donations Laboratory', icon: ClipboardCheck },
-          { id: 'requisitions', label: 'Recipient Requests', icon: FileText }
+          { id: 'requisitions', label: 'Recipient Requests', icon: FileText },
+          { id: 'alerts', label: 'Emergency Alerts', icon: ShieldAlert }
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -462,7 +527,7 @@ export const BloodBankDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
           {/* TAB 1: INVENTORY */}
           {activeTab === 'inventory' && (
-            <div className="space-y-4">
+            <div data-tour="blood-inventory" className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-bold text-slate-800">Available Blood Bags</h3>
                 <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full">
@@ -528,7 +593,7 @@ export const BloodBankDashboard: React.FC = () => {
 
           {/* TAB 2: DONORS */}
           {activeTab === 'donors' && (
-            <div className="space-y-4">
+            <div data-tour="blood-donors" className="space-y-4">
               <h3 className="text-lg font-bold text-slate-800">Donor Directory</h3>
               {donors.length === 0 ? (
                 <div className="text-center py-10 border border-dashed border-slate-200 rounded-lg text-slate-400">
@@ -657,7 +722,7 @@ export const BloodBankDashboard: React.FC = () => {
 
           {/* TAB 4: REQUISITIONS */}
           {activeTab === 'requisitions' && (
-            <div className="space-y-4">
+            <div data-tour="blood-requisitions" className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-bold text-slate-800">Clinical Blood Requests</h3>
                 <button
@@ -743,6 +808,102 @@ export const BloodBankDashboard: React.FC = () => {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB 5: EMERGENCY BUZZER ALERTS */}
+          {activeTab === 'alerts' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Emergency Donation Broadcast Alarms</h3>
+                <p className="text-slate-500 text-xs mt-0.5">Send a real-time high-priority buzzer alarm to patient mobile apps and portals matching the requested blood group.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Broadcast form control panel */}
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
+                  <h4 className="font-extrabold text-slate-700 text-sm flex items-center space-x-2">
+                    <Droplet className="h-4 w-4 text-rose-600" />
+                    <span>Configure Alert Broadcast</span>
+                  </h4>
+                  
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-slate-500 uppercase">Select Target Blood Group</label>
+                    <select
+                      value={alertBloodGroup}
+                      onChange={(e) => setAlertBloodGroup(e.target.value)}
+                      className="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-white font-bold text-rose-700 focus:outline-none"
+                    >
+                      {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((gp) => (
+                        <option key={gp} value={gp}>{gp}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {!activeBuzzerId ? (
+                    <button
+                      onClick={handleStartBroadcast}
+                      className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                    >
+                      Trigger Emergency Buzzer Alert
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs font-semibold text-rose-855 text-center animate-pulse">
+                        📢 Alert Active: Requesting {activeBuzzerGroup}
+                      </div>
+                      <button
+                        onClick={handleStopBroadcast}
+                        className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                      >
+                        Stop / Deactivate Buzzer
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Real-time Responders List */}
+                <div className="md:col-span-2 bg-slate-50/50 border border-slate-200 rounded-xl p-5 space-y-4 shadow-inner min-h-[250px]">
+                  <h4 className="font-extrabold text-slate-800 text-sm flex justify-between items-center">
+                    <span>Active Responding Donors</span>
+                    {activeBuzzerId && (
+                      <span className="px-2.5 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] rounded-full uppercase font-black animate-pulse">
+                        Real-time Socket Feed
+                      </span>
+                    )}
+                  </h4>
+
+                  {responderList.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 text-xs">
+                      <span>No accepts reported yet. Awaiting donor actions...</span>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {responderList.map((resp, idx) => (
+                        <div key={idx} className="border border-emerald-100 bg-white rounded-xl p-4 space-y-2 relative shadow-sm">
+                          <div className="absolute top-3 right-3 px-2 py-0.5 bg-emerald-100 text-emerald-800 font-extrabold text-[10px] rounded">
+                            {resp.blood_group}
+                          </div>
+                          <div className="font-extrabold text-slate-800 text-sm">{resp.patient_name}</div>
+                          <div className="text-xs text-slate-500 flex items-center space-x-1 font-medium">
+                            <span>📞 {resp.phone}</span>
+                          </div>
+                          <div className="text-xs text-slate-400 font-medium">📧 {resp.email}</div>
+                          <div className="pt-2 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-semibold">
+                            <span>Responded: {new Date(resp.time).toLocaleTimeString()}</span>
+                            <a
+                              href={`tel:${resp.phone}`}
+                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold transition"
+                            >
+                              Call Now
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

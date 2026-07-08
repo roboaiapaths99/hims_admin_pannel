@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { 
-  ArrowLeft, Printer, CreditCard, DollarSign, CheckCircle, 
+  ArrowLeft, Printer, Download, CreditCard, DollarSign, CheckCircle, 
   AlertCircle, Loader2, Calendar, User, FileText, Landmark,
   Receipt, MapPin, Phone, Mail, Hash, Layers
 } from 'lucide-react';
@@ -281,6 +281,23 @@ export const ViewInvoice: React.FC = () => {
     window.print();
   };
 
+  const handleDownloadPDF = async () => {
+    try {
+      const response = await apiClient.get(`/api/billing/invoices/${id}/pdf`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice_${invoice?.invoice_number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      console.error("Failed to download invoice PDF:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-96 space-y-4">
@@ -323,6 +340,12 @@ export const ViewInvoice: React.FC = () => {
           <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Dashboard
         </button>
         <div className="flex items-center space-x-2">
+          <button
+            onClick={handleDownloadPDF}
+            className="inline-flex items-center px-4 py-2 border border-teal-600 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer mr-2"
+          >
+            <Download className="h-4 w-4 mr-1.5 text-white" /> Download PDF
+          </button>
           <button
             onClick={handlePrint}
             className="inline-flex items-center px-4 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold shadow-sm cursor-pointer"

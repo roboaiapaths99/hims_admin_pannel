@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8002';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -107,6 +107,13 @@ apiClient.interceptors.response.use(
         useAuthStore.getState().logout();
         return Promise.reject(refreshError);
       }
+    }
+    
+    if (error.response?.status !== 401) {
+      const detail = error.response?.data?.detail || error.response?.data?.message || error.message || 'An unexpected error occurred';
+      // Import dynamically or at the top of the file
+      const { useToastStore } = await import('../store/toast');
+      useToastStore.getState().addToast(detail, 'error');
     }
     
     return Promise.reject(error);

@@ -118,6 +118,7 @@ export const Pricing: React.FC = () => {
                 <option value="procedure">Procedure / Treatment</option>
                 <option value="ot_charge">OT Booking / Surgeon Charge</option>
                 <option value="room_charge">Room / Ward Daily Rate</option>
+                <option value="diet">Dietary / Kitchen Catering Meal</option>
               </select>
             </div>
 

@@ -119,17 +119,49 @@ export const SaaSBilling: React.FC = () => {
         billing_interval: targetInterval
       });
 
-      const { txnid, amount } = initRes.data;
+      const params = initRes.data;
 
-      // Simulate a small delay for verification checkout
+      // 2. Redirect if using PayU gateway
+      if (checkoutGateway === 'payu') {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = params.action_url;
+
+        const fields = {
+          key: params.key,
+          txnid: params.txnid,
+          amount: params.amount.toFixed(2),
+          productinfo: params.productinfo,
+          firstname: params.firstname,
+          email: params.email,
+          phone: params.phone,
+          surl: params.surl,
+          furl: params.furl,
+          hash: params.hash
+        };
+
+        Object.entries(fields).forEach(([name, value]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+        return;
+      }
+
+      // Simulate a small delay for sandbox verification checkout
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // 2. Verify payment on backend to unlock SaaS quotas
+      // 3. Verify sandbox mock payment on backend
       const verifyRes = await apiClient.post('/api/saas/subscription/verify', {
         plan_id: selectedPlan.plan_id,
         gateway: checkoutGateway,
-        transaction_id: txnid,
-        amount: amount,
+        transaction_id: params.txnid,
+        amount: params.amount,
         billing_interval: targetInterval
       });
 
@@ -471,6 +503,7 @@ export const SaaSBilling: React.FC = () => {
                   className="mt-1.5 block w-full border border-slate-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 >
                   <option value="sandbox">Simulated Checkout Sandbox (Instance Verification)</option>
+                  <option value="payu">PayU Checkout (Real SaaS Subscription)</option>
                   <option value="stripe">Stripe Online checkout API</option>
                   <option value="razorpay">Razorpay Checkout SDK Gateway</option>
                 </select>

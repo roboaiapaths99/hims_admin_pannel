@@ -1491,7 +1491,10 @@ export const PatientDetails: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">Link Ayushman Bharat (ABHA) ID</h3>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">Link ABHA ID</h3>
+                <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">SANDBOX</span>
+              </div>
               <button onClick={() => setIsAbhaModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer">✕</button>
             </div>
             <div className="p-6 space-y-4">

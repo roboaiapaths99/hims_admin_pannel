@@ -42,7 +42,42 @@ export const NurseDashboard: React.FC = () => {
   const [weight, setWeight] = useState<number | ''>('');
   const [painScore, setPainScore] = useState<number>(0);
   const [triageLevel, setTriageLevel] = useState<string>('green');
+  const [newsScore, setNewsScore] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let score = 0;
+    const sys = Number(bpSys);
+    const p = Number(pulse);
+    const t = Number(temperature);
+    const o2 = Number(spo2);
+
+    if (bpSys !== '') {
+      if (sys <= 90 || sys >= 220) score += 3;
+      else if ((sys >= 91 && sys <= 100) || (sys >= 200 && sys <= 219)) score += 2;
+      else if (sys >= 101 && sys <= 110) score += 1;
+    }
+    if (pulse !== '') {
+      if (p <= 40 || p >= 131) score += 3;
+      else if (p >= 111 && p <= 130) score += 2;
+      else if ((p >= 41 && p <= 50) || (p >= 91 && p <= 110)) score += 1;
+    }
+    if (spo2 !== '') {
+      if (o2 < 92) score += 3;
+      else if (o2 === 92 || o2 === 93) score += 2;
+      else if (o2 === 94 || o2 === 95) score += 1;
+    }
+    if (temperature !== '') {
+      if (t <= 95.0 || t >= 102.3) score += 3;
+      else if (t >= 100.5 && t <= 102.2) score += 2;
+      else if ((t >= 95.1 && t <= 96.8)) score += 1;
+    }
+
+    setNewsScore(score);
+    if (score >= 7) setTriageLevel('red');
+    else if (score >= 4) setTriageLevel('yellow');
+    else setTriageLevel('green');
+  }, [bpSys, pulse, temperature, spo2]);
 
   useEffect(() => {
     fetchVitalsQueue();
@@ -112,7 +147,8 @@ export const NurseDashboard: React.FC = () => {
         height: Number(height),
         weight: Number(weight),
         pain_score: Number(painScore),
-        triage_level: triageLevel
+        triage_level: triageLevel,
+        news_score: Number(newsScore)
       };
 
       await apiClient.post('/api/vitals', payload);
@@ -130,6 +166,7 @@ export const NurseDashboard: React.FC = () => {
       setWeight('');
       setPainScore(0);
       setTriageLevel('green');
+      setNewsScore(0);
 
       // Refresh list
       await fetchVitalsQueue();
@@ -383,7 +420,7 @@ export const NurseDashboard: React.FC = () => {
                   <select
                     value={painScore}
                     onChange={(e) => setPainScore(Number(e.target.value))}
-                    className="mt-1 block w-full border border-slate-300 rounded-lg px-2 py-2 text-xs focus:ring-2 focus:ring-teal-500"
+                    className="mt-1 block w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-teal-500"
                   >
                     {[...Array(11).keys()].map(val => (
                       <option key={val} value={val}>{val} - {val === 0 ? 'No Pain' : val === 10 ? 'Severe' : ''}</option>
@@ -391,16 +428,15 @@ export const NurseDashboard: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase text-slate-500 tracking-wider">Triage Sorting</label>
-                  <select
-                    value={triageLevel}
-                    onChange={(e) => setTriageLevel(e.target.value)}
-                    className="mt-1 block w-full border border-slate-300 rounded-lg px-2 py-2 text-xs focus:ring-2 focus:ring-teal-500"
-                  >
-                    <option value="green">Green (Normal / Stable)</option>
-                    <option value="yellow">Yellow (Moderate Check)</option>
-                    <option value="red">Red (Critical Emergency)</option>
-                  </select>
+                  <label className="block text-[10px] uppercase text-slate-500 tracking-wider">NEWS Score (Triage)</label>
+                  <div className={`mt-1 flex items-center justify-between rounded-lg px-2.5 py-1.5 border text-xs font-bold ${
+                    triageLevel === 'red' ? 'bg-red-50 border-red-200 text-red-700' :
+                    triageLevel === 'yellow' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' :
+                    'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  }`}>
+                    <span className="uppercase">{triageLevel} Alert</span>
+                    <span className="font-mono bg-white px-1.5 py-0.5 rounded border">Score: {newsScore}</span>
+                  </div>
                 </div>
               </div>
 

@@ -19,6 +19,14 @@ export const HospitalProfile: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const getFullLogoUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('/uploads')) {
+      return `${apiClient.defaults.baseURL || 'http://127.0.0.1:8002'}${url}`;
+    }
+    return url;
+  };
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -127,7 +135,7 @@ export const HospitalProfile: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Editor Form Card */}
-          <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-6">
+          <div data-tour="profile-editor" className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-6">
             <h2 className="text-lg font-bold text-slate-800">Branch Details Editor</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -233,7 +241,7 @@ export const HospitalProfile: React.FC = () => {
           {/* Logo & Branding Panel */}
           <div className="space-y-6">
             {/* Branding Card */}
-            <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
+            <div data-tour="profile-logo" className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
               <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
                 <Image className="h-5 w-5 text-slate-500" />
                 <span>Hospital Logo</span>
@@ -241,7 +249,7 @@ export const HospitalProfile: React.FC = () => {
               <div className="flex flex-col items-center space-y-4">
                 <div className="h-40 w-40 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden relative shadow-inner">
                   {logoUrl ? (
-                    <img src={logoUrl} alt="Hospital Logo" className="object-contain max-h-full max-w-full" />
+                    <img src={getFullLogoUrl(logoUrl)} alt="Hospital Logo" className="object-contain max-h-full max-w-full" />
                   ) : (
                     <div className="text-center p-4">
                       <Image className="h-8 w-8 text-slate-300 mx-auto mb-1" />
@@ -279,13 +287,13 @@ export const HospitalProfile: React.FC = () => {
             </div>
 
             {/* Letterhead Preview Card */}
-            <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
+            <div data-tour="profile-preview" className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
               <h2 className="text-md font-bold text-slate-800">Print Preview Example</h2>
               <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 space-y-3 font-sans text-[11px] shadow-sm">
                 <div className="flex justify-between items-start border-b border-slate-200 pb-2">
                   <div className="flex items-center space-x-2">
                     {logoUrl ? (
-                      <img src={logoUrl} alt="Preview Logo" className="h-6 w-6 object-contain" />
+                      <img src={getFullLogoUrl(logoUrl)} alt="Preview Logo" className="h-6 w-6 object-contain" />
                     ) : (
                       <div className="h-6 w-6 bg-slate-200 rounded-full flex items-center justify-center text-[8px] font-bold">H</div>
                     )}

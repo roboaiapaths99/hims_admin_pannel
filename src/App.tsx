@@ -12,6 +12,7 @@ import Rooms from './pages/admin/Rooms';
 import Staff from './pages/admin/Staff';
 import ReportsDashboard from './pages/admin/ReportsDashboard';
 import AuditLogs from './pages/admin/AuditLogs';
+import Unauthorized from './pages/Unauthorized';
 import HospitalProfile from './pages/admin/HospitalProfile';
 import SaaSBilling from './pages/admin/SaaSBilling';
 import Roles from './pages/admin/Roles';
@@ -58,6 +59,9 @@ import FeedbackDashboard from './pages/admin/FeedbackDashboard';
 import PaymentSettings from './pages/admin/PaymentSettings';
 import { BloodBankDashboard } from './pages/admin/BloodBankDashboard';
 import { RegisterHospital } from './pages/RegisterHospital';
+import SaaSPaymentResult from './pages/admin/SaaSPaymentResult';
+import DriverDashboard from './pages/driver/DriverDashboard';
+import { RegisterPatient } from './pages/patient/RegisterPatient';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +82,10 @@ function App() {
 
           {/* Public Registration Route */}
           <Route path="/register" element={<RegisterHospital />} />
+          <Route path="/patient/register" element={<RegisterPatient />} />
+
+          {/* Unauthorized Page Route */}
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
           {/* Protected Main Layout routes */}
           <Route
@@ -587,6 +595,8 @@ function App() {
           <Route path="/payment/checkout/:id" element={<Checkout />} />
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/failure" element={<PaymentFailure />} />
+          <Route path="/saas/payment/success" element={<SaaSPaymentResult />} />
+          <Route path="/saas/payment/failure" element={<SaaSPaymentResult />} />
 
           {/* Emergency Routes */}
           <Route
@@ -607,6 +617,15 @@ function App() {
                 <Layout>
                   <AmbulanceDispatch />
                 </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/driver/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['driver', 'ambulance_driver', 'hospital_admin', 'branch_admin']}>
+                <DriverDashboard />
               </ProtectedRoute>
             }
           />

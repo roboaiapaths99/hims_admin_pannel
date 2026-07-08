@@ -30,7 +30,7 @@ export const Queue: React.FC = () => {
     fetchQueue();
 
     // Setup Socket.IO Client
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:8002';
+    const socketUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002';
     const socket = io(socketUrl, {
       transports: ['websocket'],
       autoConnect: true

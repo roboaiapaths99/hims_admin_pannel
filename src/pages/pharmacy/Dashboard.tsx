@@ -7,6 +7,8 @@ import {
   Pill, Search, CheckCircle, Clock, Play, FileText, 
   Loader2, AlertCircle, RefreshCw, Eye 
 } from 'lucide-react';
+import { useAuthStore } from '../../store/auth';
+import io from 'socket.io-client';
 
 interface PrescriptionItem {
   medicine_id: string;
@@ -41,9 +43,12 @@ export const PharmacyDashboard: React.FC = () => {
   // Quick Viewer Modal
   const [selectedPresc, setSelectedPresc] = useState<Prescription | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
 
   useEffect(() => {
     fetchPrescriptions();
+    fetchInventoryAlerts();
   }, [activeTab]);
 
   const fetchPrescriptions = async () => {
@@ -59,6 +64,18 @@ export const PharmacyDashboard: React.FC = () => {
       setError('Failed to retrieve e-prescriptions worklist.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchInventoryAlerts = async () => {
+    setIsLoadingAlerts(true);
+    try {
+      const res = await apiClient.get('/api/pharmacy/inventory/alerts');
+      setAlerts(res.data);
+    } catch (err: any) {
+      console.error("Failed to load inventory alerts", err);
+    } finally {
+      setIsLoadingAlerts(false);
     }
   };
 
@@ -96,6 +113,28 @@ export const PharmacyDashboard: React.FC = () => {
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md flex items-start space-x-3 text-xs font-semibold text-red-700">
           <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
           <p>{error}</p>
+        </div>
+      )}
+
+      {/* Inventory alerts Panel */}
+      {alerts.length > 0 && (
+        <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-4 space-y-2.5 shadow-xs">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <h4 className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Critical Stock & Expiry Warnings ({alerts.length})</h4>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {alerts.map((alert) => (
+              <div key={alert.id} className="bg-white border border-amber-100 rounded-lg p-2.5 flex items-start space-x-2 shadow-2xs">
+                <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${alert.severity === 'high' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                <div className="flex-1">
+                  <p className="font-bold text-slate-800 text-[11px]">{alert.medicine_name}</p>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">Batch: {alert.batch_number}</p>
+                  <p className="text-[10px] text-amber-700 font-semibold mt-1">{alert.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

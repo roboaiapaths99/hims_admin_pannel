@@ -294,6 +294,7 @@ export const BillingDashboard: React.FC = () => {
         </div>
         <div className="flex space-x-2 no-print">
           <button
+            data-tour="billing-compile"
             onClick={() => navigate('/billing/invoice/new')}
             className="inline-flex items-center px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-md cursor-pointer font-sans"
           >
@@ -352,7 +353,7 @@ export const BillingDashboard: React.FC = () => {
 
       {/* TAB 1: INVOICES REGISTRY */}
       {deskTab === 'invoices' && (
-        <div className="space-y-6 no-print">
+        <div data-tour="billing-queue" className="space-y-6 no-print">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex border-b border-slate-100 text-[11px] font-bold items-center space-x-2">
               <button

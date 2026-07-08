@@ -12,6 +12,7 @@ interface StaffUser {
   email: string;
   role: string;
   is_active: boolean;
+  device_id?: string | null;
   created_at: string;
   last_login?: string;
   login_count?: number;
@@ -54,6 +55,20 @@ export const Staff: React.FC = () => {
       setError('Failed to load staff list.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleReleaseDevice = async (userId: string, staffName: string) => {
+    if (!window.confirm(`Are you sure you want to release the device lock binding for ${staffName}?`)) {
+      return;
+    }
+    setError(null);
+    try {
+      await apiClient.post(`/api/org/users/${userId}/release-device`);
+      await fetchStaff();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.detail || 'Failed to release device lock.');
     }
   };
 
@@ -114,6 +129,7 @@ export const Staff: React.FC = () => {
           <p className="text-slate-500 text-sm">Manage hospital clinical practitioners, nurses, billing clerks, and pharmacists.</p>
         </div>
         <button
+          data-tour="staff-register-btn"
           onClick={() => setShowModal(true)}
           className="inline-flex items-center px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-bold shadow-md cursor-pointer transition-all"
         >
@@ -126,7 +142,7 @@ export const Staff: React.FC = () => {
       )}
 
       {/* Staff Directory Table Grid */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div data-tour="staff-list" className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center">
             <Users className="h-5 w-5 text-teal-600 mr-2" /> Registered Clinical & Support Staff
@@ -148,12 +164,14 @@ export const Staff: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Role Profile</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Logins / Activity</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Device Lock</th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
               {staffList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500 text-sm font-medium">
+                  <td colSpan={7} className="px-6 py-10 text-center text-slate-500 text-sm font-medium">
                     No staff members registered for this branch.
                   </td>
                 </tr>
@@ -182,6 +200,30 @@ export const Staff: React.FC = () => {
                         {staff.is_active ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
                         {staff.is_active ? 'Active' : 'Inactive'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {staff.device_id ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          Locked
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+                          Unbound
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                      {staff.device_id ? (
+                        <button
+                          data-tour="staff-device-lock"
+                          onClick={() => handleReleaseDevice(staff.id, staff.name)}
+                          className="inline-flex items-center px-2.5 py-1.5 border border-amber-300 text-xs font-bold rounded-lg text-amber-700 bg-amber-50 hover:bg-amber-100 cursor-pointer transition-all"
+                        >
+                          Release Device
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-semibold italic">No device bound</span>
+                      )}
                     </td>
                   </tr>
                 ))

@@ -13,6 +13,7 @@ interface DietOrder {
   delivery_time: string | null;
   status: string;
   created_at: string;
+  created_by_role?: string;
 }
 
 const statusFlow: Record<string, { label: string; next: string | null; color: string; icon: any }> = {
@@ -61,9 +62,21 @@ const KitchenDashboard: React.FC = () => {
 
   useEffect(() => { fetchOrders(); }, [filterStatus, filterMeal]);
 
-  const advanceStatus = async (orderId: string, newStatus: string) => {
+  const advanceStatus = async (order: DietOrder, newStatus: string) => {
+    let instructions = order.special_instructions || '';
+    if (newStatus === 'delivered') {
+      const person = prompt("Enter Delivery Personnel Name (e.g. John Doe, Kitchen staff):");
+      if (person) {
+        instructions = instructions 
+          ? `${instructions}. Delivered by: ${person}` 
+          : `Delivered by: ${person}`;
+      }
+    }
     try {
-      await apiClient.put(`/api/ipd/diet-orders/${orderId}`, { status: newStatus });
+      await apiClient.put(`/api/ipd/diet-orders/${order.id}`, { 
+        status: newStatus,
+        special_instructions: instructions
+      });
       fetchOrders();
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Failed to update order');
@@ -89,7 +102,7 @@ const KitchenDashboard: React.FC = () => {
       </div>
 
       {/* Status Pipeline Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div data-tour="kitchen-pipeline" className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Object.entries(statusFlow).map(([key, val]) => {
           const Icon = val.icon;
           return (
@@ -130,7 +143,7 @@ const KitchenDashboard: React.FC = () => {
       </div>
 
       {/* Orders List */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div data-tour="kitchen-orders-list" className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
@@ -159,8 +172,17 @@ const KitchenDashboard: React.FC = () => {
                 const StatusIcon = sf?.icon || Clock;
                 return (
                   <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3 font-semibold text-slate-800">
-                      {order.patient_name || 'Unknown'}
+                    <td className="px-5 py-3">
+                      <div className="font-bold text-slate-800">{order.patient_name || 'Unknown'}</div>
+                      <div className="mt-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${
+                          order.created_by_role === 'patient' 
+                            ? 'bg-teal-50 text-teal-700 border border-teal-100' 
+                            : 'bg-blue-50 text-blue-700 border border-blue-100'
+                        }`}>
+                          {order.created_by_role === 'patient' ? 'Patient Order' : 'Clinical Prescription'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-slate-600 font-mono text-xs">
                       {order.room_number || '—'}
@@ -173,7 +195,7 @@ const KitchenDashboard: React.FC = () => {
                     <td className="px-5 py-3 text-slate-700 font-medium">
                       {dietLabels[order.diet_type] || order.diet_type}
                     </td>
-                    <td className="px-5 py-3 text-slate-500 text-xs max-w-[200px] truncate">
+                    <td className="px-5 py-3 text-slate-500 text-xs max-w-[200px] truncate" title={order.special_instructions || ''}>
                       {order.special_instructions || '—'}
                     </td>
                     <td className="px-5 py-3 text-center">
@@ -185,8 +207,8 @@ const KitchenDashboard: React.FC = () => {
                     <td className="px-5 py-3 text-center">
                       {sf?.next ? (
                         <button
-                          onClick={() => advanceStatus(order.id, sf.next!)}
-                          className="text-xs font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors"
+                          onClick={() => advanceStatus(order, sf.next!)}
+                          className="text-xs font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors cursor-pointer border-0"
                         >
                           {sf.next === 'preparing' ? 'Start Prep' :
                            sf.next === 'prepared' ? 'Mark Ready' :
