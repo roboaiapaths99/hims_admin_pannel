@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { apiClient } from '../../api/client';
+import { apiClient, getSocketUrl } from '../../api/client';
 import { Alert } from '../../components/Alert';
 import { FormField } from '../../components/FormField';
 import { 
@@ -142,9 +142,8 @@ export const BloodBankDashboard: React.FC = () => {
   useEffect(() => {
     if (!activeBuzzerId) return;
     
-    const socketBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8002';
-    const cleanSocketUrl = socketBase.replace('/api', '');
-    const socket = io(cleanSocketUrl, {
+    const bloodBankSocketUrl = getSocketUrl().replace('/api', '');
+    const socket = io(bloodBankSocketUrl, {
       transports: ['websocket'],
       upgrade: false
     });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '../../api/client';
+import { apiClient, getSocketUrl } from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { Alert } from '../../components/Alert';
 import { SkeletonTable } from '../../components/Skeleton';
@@ -30,7 +30,7 @@ export const Queue: React.FC = () => {
     fetchQueue();
 
     // Setup Socket.IO Client
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002';
+    const socketUrl = getSocketUrl();
     const socket = io(socketUrl, {
       transports: ['websocket'],
       autoConnect: true

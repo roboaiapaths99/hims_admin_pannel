@@ -22,7 +22,7 @@ export const HospitalProfile: React.FC = () => {
   const getFullLogoUrl = (url: string) => {
     if (!url) return '';
     if (url.startsWith('/uploads')) {
-      return `${apiClient.defaults.baseURL || 'http://127.0.0.1:8002'}${url}`;
+      return `${apiClient.defaults.baseURL || ''}${url}`;
     }
     return url;
   };
@@ -56,11 +56,11 @@ export const HospitalProfile: React.FC = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
-    
+
     setIsUploading(true);
     setError(null);
     setSuccess(null);
-    
+
     const formData = new FormData();
     formData.append('file', file);
 

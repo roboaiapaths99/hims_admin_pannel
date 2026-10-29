@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '../../api/client';
+import { apiClient, getSocketUrl } from '../../api/client';
 import { Alert } from '../../components/Alert';
 import { SkeletonTable, SkeletonCard } from '../../components/Skeleton';
 import { 
@@ -31,7 +31,7 @@ export const DoctorDashboard: React.FC = () => {
     fetchDoctorStats();
 
     // Socket.IO sync with authentication
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8002';
+    const socketUrl = getSocketUrl();
     const token = localStorage.getItem('hmis_token');
     const socket = io(socketUrl, {
       transports: ['websocket'],

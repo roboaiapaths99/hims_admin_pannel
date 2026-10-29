@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { apiClient } from '../../api/client';
+import { apiClient, getSocketUrl } from '../../api/client';
 import { AlertTriangle, MapPin, Truck, Phone, Navigation, Play, User, CheckCircle, Volume2, VolumeX } from 'lucide-react';
 
 interface ActiveSOS {
@@ -75,9 +75,8 @@ export const DriverDashboard: React.FC = () => {
     fetchActiveSOS();
     
     // Connect WebSockets
-    const socketBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8002';
-    const cleanSocketUrl = socketBase.replace('/api', '');
-    const socket = io(cleanSocketUrl, {
+    const driverSocketUrl = getSocketUrl().replace('/api', '');
+    const socket = io(driverSocketUrl, {
       transports: ['websocket'],
       upgrade: false
     });

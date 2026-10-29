@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { apiClient } from '../../api/client';
+import { apiClient, getSocketUrl } from '../../api/client';
 import { 
   User, Activity, Calendar, FileText, CreditCard, Star, 
   MessageSquare, Loader2, ArrowRight, ShieldCheck, Download, Award, AlertTriangle, Utensils,
@@ -160,9 +160,8 @@ export const PatientPortal: React.FC = () => {
   useEffect(() => {
     if (!data?.profile?.id) return;
 
-    const socketBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8002';
-    const cleanSocketUrl = socketBase.replace('/api', '');
-    const socket = io(cleanSocketUrl, {
+    const patientSocketUrl = getSocketUrl().replace('/api', '');
+    const socket = io(patientSocketUrl, {
       transports: ['websocket'],
       upgrade: false
     });

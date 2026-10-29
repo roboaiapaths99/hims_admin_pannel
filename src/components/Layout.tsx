@@ -496,9 +496,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="flex items-center overflow-hidden">
             {selectedBranch?.logo_url ? (
               <img
-                src={selectedBranch.logo_url.startsWith('/uploads') ? `${apiClient.defaults.baseURL || 'http://127.0.0.1:8002'}${selectedBranch.logo_url}` : selectedBranch.logo_url}
-                className="h-8 w-8 rounded-lg object-contain bg-white p-0.5 border border-slate-200 mr-2.5 flex-shrink-0"
+                src={selectedBranch.logo_url.startsWith('/uploads') ? `${apiClient.defaults.baseURL || ''}${selectedBranch.logo_url}` : selectedBranch.logo_url}
                 alt="Hospital Logo"
+                className="h-8 w-8 rounded-lg object-contain bg-white p-0.5 border border-slate-200 mr-2.5 flex-shrink-0"
               />
             ) : (
               <div className="logo-pulse-ring h-8 w-8 bg-teal-500/10 border border-teal-500/20 rounded-lg flex items-center justify-center mr-2.5 flex-shrink-0">
