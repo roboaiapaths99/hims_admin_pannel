@@ -128,14 +128,12 @@ export const Login: React.FC = () => {
         {/* Logo & Branding */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center relative">
-            {/* Pulse ring behind logo */}
-            <div className="absolute w-20 h-20 rounded-full bg-teal-400/20 logo-pulse-ring" />
-            <div className="relative h-16 w-16 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-teal-500/30 rotate-3 hover:rotate-0 transition-transform duration-500">
-              <Activity className="h-8 w-8 text-white" />
+            <div className="relative h-20 w-20 bg-white rounded-2xl flex items-center justify-center shadow-2xl shadow-teal-500/20 p-2.5 border border-slate-700/40">
+              <img src="/logo-mark.png" alt="Technula HIMS Logo" className="h-full w-full object-contain" />
             </div>
           </div>
-          <h1 className="mt-6 text-3xl font-extrabold text-white tracking-tight">
-            Hospital HMIS
+          <h1 className="mt-5 text-3xl font-extrabold text-white tracking-tight">
+            Technula HIMS
           </h1>
           <p className="mt-2 text-sm font-medium text-slate-300/80">
             SaaS Multi-Branch EMR Platform

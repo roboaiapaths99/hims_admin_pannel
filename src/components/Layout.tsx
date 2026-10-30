@@ -501,9 +501,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 className="h-8 w-8 rounded-lg object-contain bg-white p-0.5 border border-slate-200 mr-2.5 flex-shrink-0"
               />
             ) : (
-              <div className="logo-pulse-ring h-8 w-8 bg-teal-500/10 border border-teal-500/20 rounded-lg flex items-center justify-center mr-2.5 flex-shrink-0">
-                <Activity className="h-5 w-5 text-teal-600" />
-              </div>
+              <img
+                src="/logo-mark.png"
+                alt="Technula HIMS"
+                className="h-8 w-8 rounded-lg object-contain bg-white p-0.5 border border-slate-200 mr-2.5 flex-shrink-0"
+              />
             )}
             <span className="font-bold text-slate-800 tracking-wide text-xs truncate max-w-[140px] uppercase">
               {selectedBranch ? selectedBranch.name : 'Hospital HMIS'}
