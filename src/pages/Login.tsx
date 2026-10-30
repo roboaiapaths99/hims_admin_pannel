@@ -111,22 +111,6 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleBootstrap = async () => {
-    setError(null);
-    setIsLoading(true);
-    try {
-      const response = await apiClient.post('/api/auth/bootstrap');
-      const defaultPassword = response.data.password || 'superadmin123';
-      alert(`Bootstrap Success!\nEmail: ${response.data.email}\nPassword: ${defaultPassword}\n\nPlease use these credentials to log in.`);
-      setEmail(response.data.email);
-      setPassword(defaultPassword);
-      setLoginMode('staff');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'System is already bootstrapped.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen auth-bg flex items-center justify-center p-4 font-sans">
@@ -395,21 +379,6 @@ export const Login: React.FC = () => {
           )}
         </div>
 
-        {/* Small Setup / Bootstrap Card */}
-        <div className="mt-6 bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 text-center backdrop-blur-md">
-          <p className="text-xs text-slate-300 font-semibold">
-            System Admin Initialization Console
-          </p>
-          <button
-            type="button"
-            onClick={handleBootstrap}
-            disabled={isLoading}
-            className="mt-2.5 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition-all cursor-pointer border-0"
-          >
-            <Shield className="h-3.5 w-3.5 text-teal-400" />
-            Initialize Super Admin Credentials
-          </button>
-        </div>
 
         {/* Footer */}
         <p className="mt-6 text-center text-xs text-slate-400/60 font-medium">
