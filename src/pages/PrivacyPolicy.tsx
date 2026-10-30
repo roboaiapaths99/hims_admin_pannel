@@ -140,11 +140,11 @@ export const PrivacyPolicy: React.FC = () => {
             <div className="mt-3 p-4 bg-slate-900/60 rounded-xl border border-slate-700/50 space-y-2">
               <div className="flex items-center gap-2 text-slate-300">
                 <Mail className="w-4 h-4 text-teal-400" />
-                <span>support@technula.com</span>
+                <span>info@technula.com</span>
               </div>
               <div className="flex items-center gap-2 text-slate-300">
                 <Phone className="w-4 h-4 text-teal-400" />
-                <span>+91 7906681573</span>
+                <span>+91 9911020199</span>
               </div>
               <div className="flex items-center gap-2 text-slate-300">
                 <MapPin className="w-4 h-4 text-teal-400" />
