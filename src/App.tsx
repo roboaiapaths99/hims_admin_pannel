@@ -62,6 +62,7 @@ import { RegisterHospital } from './pages/RegisterHospital';
 import SaaSPaymentResult from './pages/admin/SaaSPaymentResult';
 import DriverDashboard from './pages/driver/DriverDashboard';
 import { RegisterPatient } from './pages/patient/RegisterPatient';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,6 +87,10 @@ function App() {
 
           {/* Unauthorized Page Route */}
           <Route path="/unauthorized" element={<Unauthorized />} />
+
+          {/* Public Privacy Policy */}
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
           {/* Protected Main Layout routes */}
           <Route

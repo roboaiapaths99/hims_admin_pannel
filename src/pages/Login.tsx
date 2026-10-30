@@ -381,9 +381,14 @@ export const Login: React.FC = () => {
 
 
         {/* Footer */}
-        <p className="mt-6 text-center text-xs text-slate-400/60 font-medium">
-          Secured with end-to-end encryption · HIPAA compliant
-        </p>
+        <div className="mt-6 text-center text-xs text-slate-400/60 font-medium space-y-1">
+          <p>Secured with end-to-end encryption · HIPAA compliant</p>
+          <p>
+            <Link to="/privacy" className="text-teal-400 hover:text-teal-300 underline transition-colors">
+              Privacy Policy & Patient Data Security
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
